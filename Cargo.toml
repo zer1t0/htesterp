@@ -1,8 +1,11 @@
 [package]
 name = "htesterp"
 version = "0.1.0"
-authors = ["Zer1t0"]
+description = "Tool to check if HTTP or HTTPS are available for hosts"
+authors = ["Eloy Perez <zer1t0ps@protonmail.com>"]
 edition = "2018"
+license = "GPL-3.0"
+repository = "https://gitlab.com/Zer1t0/htesterp"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
