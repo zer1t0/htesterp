@@ -1,7 +1,7 @@
 [package]
 name = "htesterp"
-version = "0.1.1"
-description = "Tool to check if HTTP or HTTPS are available for hosts"
+version = "0.2.0"
+description = "HTTP/HTTPS endpoint checker"
 authors = ["Eloy Perez <zer1t0ps@protonmail.com>"]
 edition = "2018"
 license = "GPL-3.0"
