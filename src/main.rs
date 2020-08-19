@@ -1,9 +1,7 @@
 ///
 ///
-
 // TODO: timeout to milliseconds
 // TODO: extract title from html
-
 mod args;
 mod ports;
 mod readin;
@@ -65,11 +63,16 @@ fn create_http_client(timeout: u64) -> reqwest::Client {
     return builder.build().unwrap();
 }
 
-
 /// Function to generate urls, from protocol,
 /// host and port and returns them in a iterator.
-fn gen_urls(proto_ports: Vec<ProtoPort>, targets: Vec<String>) -> impl Iterator<Item = String> {
-    return UrlGenerator::new(proto_ports, Box::new(readin::read_inputs(targets)));
+fn gen_urls(
+    proto_ports: Vec<ProtoPort>,
+    targets: Vec<String>,
+) -> impl Iterator<Item = String> {
+    return UrlGenerator::new(
+        proto_ports,
+        Box::new(readin::read_inputs(targets)),
+    );
 }
 
 struct UrlGenerator {
@@ -80,7 +83,10 @@ struct UrlGenerator {
 }
 
 impl UrlGenerator {
-    fn new(proto_ports: Vec<ProtoPort>, targets: Box<dyn Iterator<Item = String>>) -> Self {
+    fn new(
+        proto_ports: Vec<ProtoPort>,
+        targets: Box<dyn Iterator<Item = String>>,
+    ) -> Self {
         Self {
             proto_ports: proto_ports,
             targets,

@@ -1,5 +1,5 @@
-use clap::{App, Arg, ArgMatches};
 use crate::ports::ProtoPort;
+use clap::{App, Arg, ArgMatches};
 
 fn args() -> App<'static, 'static> {
     App::new(env!("CARGO_PKG_NAME"))
@@ -105,7 +105,6 @@ impl Arguments {
 
         let verbosity = matches.occurrences_of("verbosity") as usize;
 
-
         return Self {
             targets: Self::parse_targets(&matches),
             proto_ports: Self::parse_ports(&matches),
@@ -129,7 +128,7 @@ impl Arguments {
         }
         return Vec::new();
     }
-    
+
     fn parse_ports(matches: &ArgMatches) -> Vec<ProtoPort> {
         let mut pps: Vec<ProtoPort> = Vec::new();
         for pp_str in matches.values_of("ports").unwrap() {
@@ -139,16 +138,15 @@ impl Arguments {
             let protocols: Vec<String>;
 
             match parts.len() {
-                1 =>  {
+                1 => {
                     protocols = vec!["http".to_string(), "https".to_string()];
                     port = parts[0].parse().unwrap();
                 }
-                2 =>  {
+                2 => {
                     protocols = vec![parts[0].to_string()];
                     port = parts[1].parse().unwrap();
-                    
                 }
-                _ => unreachable!("Too much port parts")
+                _ => unreachable!("Too much port parts"),
             }
 
             for proto in protocols.into_iter() {
