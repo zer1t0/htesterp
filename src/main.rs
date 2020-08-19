@@ -1,84 +1,62 @@
-mod arguments;
-mod printer;
+///
+///
 
-use std::fs::File;
-use std::io::{BufRead, BufReader};
+// TODO: timeout to milliseconds
+// TODO: extract title from html
+
+mod args;
+mod ports;
+mod readin;
+
 use futures::{stream, StreamExt};
 use std::time::Duration;
 
-use arguments::Arguments;
-use printer::Printer;
+use args::Arguments;
+use ports::ProtoPort;
+
+use log::{info, warn};
+use stderrlog;
+
+fn init_log(verbosity: usize) {
+    stderrlog::new()
+        .module(module_path!())
+        .verbosity(verbosity)
+        .init()
+        .expect("Error initiating log");
+}
 
 #[tokio::main]
 async fn main() {
     let args = Arguments::parse_args();
-
-    let hosts_file = File::open(args.hosts_filename())
-        .expect("Error opening ip file");
-    
-    let mut protocols = Vec::new();
-
-    if args.use_http() {
-        protocols.push("http")
-    }
-
-    if args.use_https() {
-        protocols.push("https")
-    }
-
-    let ports = args.ports();
-    
-    let hosts_reader = BufReader::new(hosts_file);
-
-    let client = create_http_client(
-        args.timeout()
-    );
-    let urls = generate_urls(&protocols, hosts_reader, ports);
-
-    let requests_max = urls.len();
-    let bodies = stream::iter(urls)
+    init_log(args.verbosity);
+    let client = create_http_client(args.timeout);
+    let invalid_codes = &args.invalid_codes;
+    let fetches = stream::iter(gen_urls(args.proto_ports, args.targets))
         .map(|url| {
             let client = &client;
             async move {
-                return client.get(&url).send().await;
-            }
-        })
-        .buffer_unordered(args.threads());
-
-    let invalid_400 = args.invalid_400();
-    let printer = Printer::new(args.progress(), args.verbosity());
-    let mut requests_count = 0;
-    bodies
-        .for_each(|b| {
-            let printer = &printer;
-            requests_count = requests_count + 1;
-            async move {
-                match b {
+                info!("Request {}", url);
+                match client.get(&url).send().await {
                     Ok(resp) => {
-                        
-                        if invalid_400 && resp.status().as_u16() == 400 {
-                            printer.print_error(
-                                &format!("{}: 400 Response", resp.url())
-                            );
-                        }else {
-                            printer.print_url(resp.url());
+                        if invalid_codes.contains(&resp.status().as_u16()) {
+                            warn!("{}: 400 Response", resp.url());
+                        } else {
+                            println!("{}", url);
                         }
                     }
                     Err(err) => {
-                        printer.print_error(&err);
+                        warn!("{}", err);
                     }
-                }
-                printer.print_progress(requests_count, requests_max);
+                };
             }
         })
-        .await;
+        .buffer_unordered(args.workers)
+        .collect::<Vec<()>>();
 
-        printer.print_end();
+    fetches.await;
 }
 
-fn create_http_client(
-    timeout: u64
-) -> reqwest::Client {
+fn create_http_client(timeout: u64) -> reqwest::Client {
     let builder = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .redirect(reqwest::redirect::Policy::none())
@@ -87,21 +65,51 @@ fn create_http_client(
     return builder.build().unwrap();
 }
 
-fn generate_urls(
-    protocols: &[&str],
-    hosts_reader: BufReader<File>,
-    ports: &Vec<u16>
-) -> Vec<String> {
-    let mut urls = Vec::new();
 
-    for line in hosts_reader.lines() {
-        let hostname = line.unwrap();
-        for port in ports.iter() {
-            for protocol in protocols.iter() {
-                let url = format!("{}://{}:{}", protocol, hostname, port);
-                urls.push(url);
+/// Function to generate urls, from protocol,
+/// host and port and returns them in a iterator.
+fn gen_urls(proto_ports: Vec<ProtoPort>, targets: Vec<String>) -> impl Iterator<Item = String> {
+    return UrlGenerator::new(proto_ports, Box::new(readin::read_inputs(targets)));
+}
+
+struct UrlGenerator {
+    proto_ports: Vec<ProtoPort>,
+    targets: Box<dyn Iterator<Item = String>>,
+    current_target: Option<String>,
+    current_proto_ports: Vec<ProtoPort>,
+}
+
+impl UrlGenerator {
+    fn new(proto_ports: Vec<ProtoPort>, targets: Box<dyn Iterator<Item = String>>) -> Self {
+        Self {
+            proto_ports: proto_ports,
+            targets,
+            current_target: None,
+            current_proto_ports: Vec::new(),
+        }
+    }
+}
+
+impl Iterator for UrlGenerator {
+    type Item = String;
+
+    fn next(&mut self) -> Option<String> {
+        loop {
+            match self.current_proto_ports.pop() {
+                Some(pp) => {
+                    return Some(format!(
+                        "{}://{}:{}",
+                        pp.proto,
+                        self.current_target.as_ref().unwrap(),
+                        pp.port
+                    ));
+                }
+                None => {
+                    self.current_target = Some(self.targets.next()?);
+                    self.current_proto_ports = self.proto_ports.clone();
+                    self.current_proto_ports.reverse();
+                }
             }
         }
     }
-    return urls;
 }
