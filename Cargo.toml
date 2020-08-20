@@ -16,3 +16,4 @@ tokio = { version = "0.2", features = ["full"] }
 futures = "0.3"
 log = "0.4"
 stderrlog = "0.4"
+scraper = "0.11"

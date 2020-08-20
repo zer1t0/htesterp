@@ -24,6 +24,26 @@ fn args() -> App<'static, 'static> {
                 .validator(is_port),
         )
         .arg(
+            Arg::with_name("title")
+                .long("title")
+                .short("t")
+                .help("Show page title if any"),
+        )
+        .arg(
+            Arg::with_name("status")
+                .long("status")
+                .short("s")
+                .help("Show response status code"),
+        )
+        .arg(
+            Arg::with_name("delimiter")
+                .short("d")
+                .long("delimiter")
+                .takes_value(true)
+                .help("Fields delimiter")
+                .default_value(" "),
+        )
+        .arg(
             Arg::with_name("workers")
                 .short("w")
                 .long("workers")
@@ -87,6 +107,9 @@ pub struct Arguments {
     pub timeout: u64,
     pub verbosity: usize,
     pub invalid_codes: Vec<u16>,
+    pub show_title: bool,
+    pub show_status: bool,
+    pub delimiter: String,
 }
 
 impl Arguments {
@@ -112,6 +135,9 @@ impl Arguments {
             timeout,
             verbosity,
             invalid_codes: Self::parse_invalid_codes(&matches),
+            show_title: matches.is_present("title"),
+            show_status: matches.is_present("status"),
+            delimiter: matches.value_of("delimiter").unwrap().to_string(),
         };
     }
 

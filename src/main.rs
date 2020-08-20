@@ -1,7 +1,7 @@
 ///
 ///
 // TODO: timeout to milliseconds
-// TODO: extract title from html
+
 mod args;
 mod ports;
 mod readin;
@@ -13,6 +13,8 @@ use args::Arguments;
 use ports::ProtoPort;
 
 use log::{info, warn};
+use reqwest::{header, Client, Response};
+use scraper::{Html, Selector};
 use stderrlog;
 
 fn init_log(verbosity: usize) {
@@ -29,6 +31,9 @@ async fn main() {
     init_log(args.verbosity);
     let client = create_http_client(args.timeout);
     let invalid_codes = &args.invalid_codes;
+    let show_status = args.show_status;
+    let show_title = args.show_title;
+    let delimiter = &args.delimiter;
     let fetches = stream::iter(gen_urls(args.proto_ports, args.targets))
         .map(|url| {
             let client = &client;
@@ -39,7 +44,22 @@ async fn main() {
                         if invalid_codes.contains(&resp.status().as_u16()) {
                             warn!("{}: 400 Response", resp.url());
                         } else {
-                            println!("{}", url);
+                            let mut message = vec![format!("{}", url)];
+                            if show_status {
+                                message.push(format!(
+                                    "{}",
+                                    resp.status().as_u16()
+                                ));
+                            }
+
+                            if show_title {
+                                let title = get_resp_title(resp)
+                                    .await
+                                    .unwrap_or("".to_string());
+                                let title = title.replace("\n", "");
+                                message.push(title);
+                            }
+                            println!("{}", message.join(delimiter));
                         }
                     }
                     Err(err) => {
@@ -54,13 +74,59 @@ async fn main() {
     fetches.await;
 }
 
-fn create_http_client(timeout: u64) -> reqwest::Client {
-    let builder = reqwest::Client::builder()
+fn create_http_client(timeout: u64) -> Client {
+    let builder = Client::builder()
         .danger_accept_invalid_certs(true)
         .redirect(reqwest::redirect::Policy::none())
         .timeout(Duration::from_secs(timeout));
 
     return builder.build().unwrap();
+}
+
+async fn get_resp_title(resp: Response) -> Option<String> {
+    if is_html_resp(&resp) {
+        match resp.text().await {
+            Ok(text) => {
+                return extract_html_title(&text);
+            }
+            Err(_) => {}
+        }
+    }
+
+    return None;
+}
+
+fn is_html_resp(resp: &Response) -> bool {
+    let headers = resp.headers();
+    let content_type = headers.get(header::CONTENT_TYPE);
+
+    if let Some(content_type) = content_type {
+        let content_type =
+            content_type.to_str().expect("Error parsing content-type");
+
+        let content_type: &str =
+            content_type.split(";").collect::<Vec<&str>>()[0];
+
+        match content_type {
+            "text/html" | "text/xml" | "application/xhtml+xml" => {
+                return true;
+            }
+            _ => {}
+        }
+    }
+
+    return false;
+}
+
+fn extract_html_title(html: &str) -> Option<String> {
+    let html = Html::parse_document(html);
+    let selector = Selector::parse("title").unwrap();
+
+    for tag in html.select(&selector) {
+        return Some(tag.text().collect::<Vec<_>>().join(""));
+    }
+
+    return None;
 }
 
 /// Function to generate urls, from protocol,
