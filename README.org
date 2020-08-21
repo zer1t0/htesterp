@@ -1,0 +1,72 @@
+#+title: HTesTerP
+
+HTTP(S) endpoints tester. 
+
+It receives hosts (domains or ips) as input and check for HTTP endpoints,
+similar to [[https://github.com/tomnomnom/httprobe][httprobe]]. 
+
+
+As output, htesterp can provide for valid endpoints:
+- url
+- status code
+- title
+
+* Setup
+
+In order to install the use the tool there are several options.
+
+From crates.io (cargo):
+#+BEGIN_SRC shell
+cargo install htesterp
+htesterp -h
+#+END_SRC
+
+From source:
+#+BEGIN_SRC shell
+git clone https://gitlab.com/Zer1t0/htesterp.git
+cd ./htesterp
+cargo build --release
+./target/release/htesterp -h
+#+END_SRC
+
+* Usage
+
+To show the options, use the well-known ~-h/--help~:
+#+BEGIN_SRC shell
+htesterp -h
+#+END_SRC
+
+You can feed htesterp with a host (domain or ip), a file of hosts or stdin:
+#+BEGIN_SRC shell
+htesterp www.contoso.com
+htesterp /tmp/contoso_domains
+echo "contoso.com" | htesterp
+#+END_SRC
+
+You can get the title with ~-t~ and status with ~-s~:
+#+begin_example shell
+$ htesterp www.reddit.com -ts
+http://www.reddit.com:80 301 
+https://www.reddit.com:443 200 reddit: the front page of the internet
+#+end_example
+
+By default, it checks the http port 80, and https port 443. To specify other
+ports you can use ~-p~. If you prepend ~http~ or ~https~ to port number, then
+only the selected protocol will be check, in other case both will be scanned.
+
+For example, the following command checks the ports 8000 and 8080 with http and
+ports 8000 and 8443 with https:
+#+begin_example shell
+htesterp -p http:8080,https:8443,8000
+#+end_example
+
+
+You can use it with other tools that retrieve domains, such as
+[[https://github.com/OWASP/Amass][amass]] or [[https://github.com/projectdiscovery/subfinder][subfinder]]. The following command retrieves title and status and checks
+the 8080 http and https ports:
+#+begin_example
+subfinder -d reddit.com | htesterp -ts -p 8080
+#+end_example
+
+
+
