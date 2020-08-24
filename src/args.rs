@@ -54,9 +54,16 @@ fn args() -> App<'static, 'static> {
         .arg(
             Arg::with_name("timeout")
                 .long("timeout")
+                .short("T")
                 .takes_value(true)
                 .help("Timeout (milliseconds)")
                 .default_value("5000"),
+        )
+        .arg(
+            Arg::with_name("redirect")
+                .long("location")
+                .short("L")
+                .help("Follow redirects"),
         )
         .arg(
             Arg::with_name("verbosity")
@@ -110,6 +117,7 @@ pub struct Arguments {
     pub show_title: bool,
     pub show_status: bool,
     pub delimiter: String,
+    pub follow_redirect: bool,
 }
 
 impl Arguments {
@@ -138,6 +146,7 @@ impl Arguments {
             show_title: matches.is_present("title"),
             show_status: matches.is_present("status"),
             delimiter: matches.value_of("delimiter").unwrap().to_string(),
+            follow_redirect: matches.is_present("redirect"),
         };
     }
 

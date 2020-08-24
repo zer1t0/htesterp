@@ -1,7 +1,6 @@
 ///
 ///
 // TODO: timeout to milliseconds
-
 mod args;
 mod ports;
 mod readin;
@@ -13,7 +12,7 @@ use args::Arguments;
 use ports::ProtoPort;
 
 use log::{info, warn};
-use reqwest::{header, Client, Response};
+use reqwest::{header, redirect, Client, Response};
 use scraper::{Html, Selector};
 use stderrlog;
 
@@ -29,7 +28,7 @@ fn init_log(verbosity: usize) {
 async fn main() {
     let args = Arguments::parse_args();
     init_log(args.verbosity);
-    let client = create_http_client(args.timeout);
+    let client = create_http_client(args.timeout, args.follow_redirect);
     let invalid_codes = &args.invalid_codes;
     let show_status = args.show_status;
     let show_title = args.show_title;
@@ -74,10 +73,15 @@ async fn main() {
     fetches.await;
 }
 
-fn create_http_client(timeout: u64) -> Client {
+fn create_http_client(timeout: u64, redirect: bool) -> Client {
+    let redirect_policy = match redirect {
+        true => redirect::Policy::limited(3),
+        false => redirect::Policy::none(),
+    };
+
     let builder = Client::builder()
         .danger_accept_invalid_certs(true)
-        .redirect(reqwest::redirect::Policy::none())
+        .redirect(redirect_policy)
         .timeout(Duration::from_millis(timeout));
 
     return builder.build().unwrap();
