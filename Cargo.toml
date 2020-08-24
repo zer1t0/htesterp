@@ -1,6 +1,6 @@
 [package]
 name = "htesterp"
-version = "0.2.1"
+version = "0.2.2"
 description = "HTTP/HTTPS endpoint checker"
 authors = ["Eloy Perez <zer1t0ps@protonmail.com>"]
 edition = "2018"
