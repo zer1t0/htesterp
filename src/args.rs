@@ -55,8 +55,8 @@ fn args() -> App<'static, 'static> {
             Arg::with_name("timeout")
                 .long("timeout")
                 .takes_value(true)
-                .help("Timeout (seconds)")
-                .default_value("5"),
+                .help("Timeout (milliseconds)")
+                .default_value("5000"),
         )
         .arg(
             Arg::with_name("verbosity")

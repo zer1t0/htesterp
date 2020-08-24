@@ -78,7 +78,7 @@ fn create_http_client(timeout: u64) -> Client {
     let builder = Client::builder()
         .danger_accept_invalid_certs(true)
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(Duration::from_secs(timeout));
+        .timeout(Duration::from_millis(timeout));
 
     return builder.build().unwrap();
 }
