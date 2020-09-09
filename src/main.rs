@@ -1,20 +1,24 @@
 ///
 ///
-// TODO: timeout to milliseconds
 mod args;
 mod ports;
 mod readin;
 
 use futures::{stream, StreamExt};
+use futures::future;
+use serde::Serialize;
 use std::time::Duration;
 
 use args::Arguments;
 use ports::ProtoPort;
 
-use log::{info, warn};
+use log::{info, warn, error};
 use reqwest::{header, redirect, Client, Response};
 use scraper::{Html, Selector};
 use stderrlog;
+
+use std::fs::File;
+use std::io::Write;
 
 fn init_log(verbosity: usize) {
     stderrlog::new()
@@ -33,44 +37,72 @@ async fn main() {
     let show_status = args.show_status;
     let show_title = args.show_title;
     let delimiter = &args.delimiter;
+
     let fetches = stream::iter(gen_urls(args.proto_ports, args.targets))
         .map(|url| {
             let client = &client;
             async move {
-                info!("Request {}", url);
-                match client.get(&url).send().await {
-                    Ok(resp) => {
-                        if invalid_codes.contains(&resp.status().as_u16()) {
-                            warn!("{}: 400 Response", resp.url());
-                        } else {
-                            let mut message = vec![format!("{}", url)];
-                            if show_status {
-                                message.push(format!(
-                                    "{}",
-                                    resp.status().as_u16()
-                                ));
-                            }
-
-                            if show_title {
-                                let title = get_resp_title(resp)
-                                    .await
-                                    .unwrap_or("".to_string());
-                                let title = title.replace("\n", "");
-                                message.push(title);
-                            }
-                            println!("{}", message.join(delimiter));
-                        }
-                    }
-                    Err(err) => {
-                        warn!("{}", err);
-                    }
-                };
+                return process_url(url, client, invalid_codes, show_status, show_title, delimiter).await;
             }
         })
         .buffer_unordered(args.workers)
-        .collect::<Vec<()>>();
+        .filter(|r| future::ready(r.is_some())).map(|r| r.unwrap())
+        .collect::<Vec<ResponseInfo>>();
 
-    fetches.await;
+    let results = fetches.await;
+    if let Some(json_file) = args.json_file {
+        info!("Saving json result in {}", json_file);
+        save_json(json_file, &results);
+    }
+}
+
+async fn process_url(
+    url: String,
+    client: &Client,
+    invalid_codes: &Vec<u16>,
+    show_status: bool,
+    show_title: bool,
+    delimiter: &str
+) -> Option<ResponseInfo> {
+    info!("Request {}", url);
+    match client.get(&url).send().await {
+        Ok(resp) => {
+            let resp_info = parse_response(resp).await;
+            if invalid_codes.contains(&resp_info.status) {
+                warn!("{}: 400 Response", resp_info.url);
+            } else {
+                let mut message = vec![format!("{}", url)];
+                if show_status {
+                    message.push(format!("{}", resp_info.status));
+                }
+
+                if show_title {
+                    message.push(resp_info.title.replace("\n", ""));
+                }
+                println!("{}", message.join(delimiter));
+                return Some(resp_info);
+            }
+        }
+        Err(err) => {
+            warn!("{}", err);
+        }
+    };
+
+    return None;
+}
+
+#[derive(Serialize, Debug)]
+struct ResponseInfo {
+    pub url: String,
+    pub status: u16,
+    pub title: String,
+}
+
+async fn parse_response(resp: Response) -> ResponseInfo {
+    let status = resp.status().as_u16();
+    let url = format!("{}", resp.url());
+    let title = get_resp_title(resp).await.unwrap_or("".to_string());
+    return ResponseInfo { url, status, title };
 }
 
 fn create_http_client(timeout: u64, redirect: bool) -> Client {
@@ -186,6 +218,23 @@ impl Iterator for UrlGenerator {
                     self.current_proto_ports.reverse();
                 }
             }
+        }
+    }
+}
+
+
+fn save_json(filepath: String, responses: &Vec<ResponseInfo>) {
+    let json_str = serde_json::to_string(responses).expect("Error parsing responses");
+
+
+    match File::create(&filepath) {
+        Ok(mut file) => {
+            if let Err(err) = file.write_all(json_str.as_bytes()) {
+                error!("Error writing {}: {}", filepath, err);
+            }
+        }
+        Err(err) => {
+            error!("Error opening {}: {}", filepath, err);
         }
     }
 }

@@ -66,6 +66,14 @@ fn args() -> App<'static, 'static> {
                 .help("Follow redirects"),
         )
         .arg(
+            Arg::with_name("json-file")
+                .short("j")
+                .long("json-file")
+                .takes_value(true)
+                .help("File to save data in json format")
+                .default_value(" "),
+        )
+        .arg(
             Arg::with_name("verbosity")
                 .short("v")
                 .multiple(true)
@@ -118,6 +126,7 @@ pub struct Arguments {
     pub show_status: bool,
     pub delimiter: String,
     pub follow_redirect: bool,
+    pub json_file: Option<String>,
 }
 
 impl Arguments {
@@ -147,6 +156,7 @@ impl Arguments {
             show_status: matches.is_present("status"),
             delimiter: matches.value_of("delimiter").unwrap().to_string(),
             follow_redirect: matches.is_present("redirect"),
+            json_file: Self::parse_json_file(&matches),
         };
     }
 
@@ -155,6 +165,10 @@ impl Arguments {
             return vec![400];
         }
         return Vec::new();
+    }
+
+    fn parse_json_file(matches: &ArgMatches) -> Option<String> {
+        return Some(matches.value_of("json-file")?.to_string())
     }
 
     fn parse_targets(matches: &ArgMatches) -> Vec<String> {

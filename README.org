@@ -63,9 +63,9 @@ htesterp -p http:8080,https:8443,8000
 
 You can use it with other tools that retrieve domains, such as
 [[https://github.com/OWASP/Amass][amass]] or [[https://github.com/projectdiscovery/subfinder][subfinder]]. The following command retrieves title and status and checks
-the 8080 http and https ports:
+the 8080 http and https ports, and save the final results in file results.json:
 #+begin_example
-subfinder -d reddit.com | htesterp -ts -p 8080
+subfinder -d reddit.com | htesterp -ts -p 8080 -j results.json
 #+end_example
 
 
